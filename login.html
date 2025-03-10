@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - TalentFund</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-md w-full space-y-8">
+            <div>
+                <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Welcome back!</h2>
+                <p class="mt-2 text-center text-sm text-gray-600">
+                    Enter your email to continue
+                </p>
+            </div>
+
+            <!-- Wallet Connection -->
+            <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900">Connect Your Wallet</h3>
+                        <p class="text-sm text-gray-500" id="walletStatus">Please connect your wallet to continue</p>
+                    </div>
+                    <button onclick="handleConnect()" id="connectWallet" 
+                            class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+                        Connect Wallet
+                    </button>
+                </div>
+            </div>
+
+            <form id="loginForm" class="mt-8 space-y-6">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">Email address</label>
+                    <input type="email" id="email" name="email" required
+                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="Enter your email">
+                </div>
+
+                <div>
+                    <button type="submit"
+                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Continue
+                    </button>
+                </div>
+            </form>
+
+            <div class="text-center">
+                <a href="/userform.html" class="text-sm text-indigo-600 hover:text-indigo-500">
+                    New student? Register here
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let provider = null;
+        let signer = null;
+        let userAddress = null;
+
+        // Handle wallet connection
+        async function handleConnect() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    alert('Please install MetaMask to use this application');
+                    return;
+                }
+
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                
+                signer = provider.getSigner();
+                userAddress = await signer.getAddress();
+
+                updateWalletUI(userAddress);
+                console.log('Connected to wallet:', userAddress);
+            } catch (error) {
+                console.error('Error connecting wallet:', error);
+                alert('Failed to connect wallet. Please make sure MetaMask is installed and try again.');
+            }
+        }
+
+        // Update UI after wallet connection
+        function updateWalletUI(address) {
+            const walletStatus = document.getElementById('walletStatus');
+            const connectWalletBtn = document.getElementById('connectWallet');
+
+            walletStatus.textContent = `Connected: ${address.slice(0, 6)}...${address.slice(-4)}`;
+            connectWalletBtn.textContent = 'Wallet Connected';
+            connectWalletBtn.disabled = true;
+        }
+
+        // Handle login form submission
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!userAddress) {
+                alert('Please connect your wallet first');
+                return;
+            }
+
+            const email = document.getElementById('email').value;
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const user = users.find(u => u.email === email && u.walletAddress === userAddress);
+
+            if (user) {
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                window.location.href = '/student_dashboard.html';
+            } else {
+                alert('No account found with this email and wallet address. Please register first.');
+                window.location.href = '/userform.html';
+            }
+        });
+
+        // Check if wallet is already connected
+        async function checkConnection() {
+            if (typeof window.ethereum !== 'undefined') {
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                const accounts = await provider.listAccounts();
+                
+                if (accounts.length > 0) {
+                    signer = provider.getSigner();
+                    userAddress = accounts[0];
+                    updateWalletUI(userAddress);
+                }
+
+                // Listen for account changes
+                window.ethereum.on('accountsChanged', (accounts) => {
+                    if (accounts.length === 0) {
+                        provider = null;
+                        signer = null;
+                        userAddress = null;
+                        document.getElementById('walletStatus').textContent = 'Please connect your wallet to continue';
+                        document.getElementById('connectWallet').textContent = 'Connect Wallet';
+                        document.getElementById('connectWallet').disabled = false;
+                    } else {
+                        userAddress = accounts[0];
+                        updateWalletUI(userAddress);
+                    }
+                });
+
+                window.ethereum.on('chainChanged', () => {
+                    window.location.reload();
+                });
+            }
+        }
+
+        // Initialize when the page loads
+        window.addEventListener('load', checkConnection);
+    </script>
+</body>
+</html>

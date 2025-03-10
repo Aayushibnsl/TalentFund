@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investor Dashboard - TalentFund</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Navigation -->
+        <nav class="bg-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex">
+                        <div class="flex-shrink-0 flex items-center">
+                            <a href="/" class="text-xl font-bold text-indigo-600">TalentFund</a>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <p id="walletStatus" class="text-sm text-gray-600"></p>
+                        <button onclick="handleLogout()" 
+                                class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <!-- Profile Card -->
+            <div class="mb-8 p-6 bg-white rounded-lg shadow-md">
+                <div id="profileInfo">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Your Profile</h2>
+                    <!-- Profile info will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Student Applications -->
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">Student Applications</h2>
+                <div id="applicationsList" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    <!-- Applications will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Funding History -->
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">Your Funding History</h2>
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="p-6">
+                        <div id="fundingsList">
+                            <!-- Funding records will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fund Student Modal -->
+    <div id="fundModal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="bg-white p-8 rounded-lg shadow-xl max-w-md w-full">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Fund Student</h3>
+                    <button onclick="closeFundModal()" class="text-gray-400 hover:text-gray-500">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <div id="studentDetails" class="mb-4">
+                    <!-- Student details will be loaded here -->
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700">Amount (ETH)</label>
+                    <input type="number" id="fundAmount" step="0.01" min="0"
+                        class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700">Message to Student</label>
+                    <textarea id="fundMessage" rows="3"
+                        class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="Add a personal message or instructions for the student"></textarea>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700">Your Contact Information</label>
+                    <input type="text" id="contactInfo"
+                        class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="How should the student contact you?">
+                </div>
+                <div class="flex justify-end space-x-4">
+                    <button onclick="closeFundModal()"
+                        class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                        Cancel
+                    </button>
+                    <button onclick="fundStudent()"
+                        class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+                        Send Funds
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let provider = null;
+        let signer = null;
+        let userAddress = null;
+        let currentUser = null;
+
+        // Handle logout
+        function handleLogout() {
+            localStorage.removeItem('currentUser');
+            window.location.href = '/';
+        }
+
+        // Load investor profile
+        function loadProfile() {
+            currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (!currentUser || currentUser.type !== 'investor') {
+                window.location.href = '/investor_form.html';
+                return;
+            }
+
+            const profileInfo = document.getElementById('profileInfo');
+            profileInfo.innerHTML = `
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900">${currentUser.name}</h3>
+                        <p class="mt-1 text-sm text-gray-500">${currentUser.email}</p>
+                        <p class="mt-1 text-sm text-gray-500">Contact: ${currentUser.contactInfo}</p>
+                        <p class="mt-2 text-sm text-gray-500">Investment Preferences: ${currentUser.investmentPreferences}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Load student applications
+        function loadApplications() {
+            const users = JSON.parse(localStorage.getItem('users') || '[]');
+            const students = users.filter(u => !u.type || u.type === 'student');
+            const applicationsList = document.getElementById('applicationsList');
+
+            if (students.length === 0) {
+                applicationsList.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <p class="text-gray-500">No student applications yet</p>
+                    </div>
+                `;
+                return;
+            }
+
+            applicationsList.innerHTML = students.map(student => `
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <h3 class="text-lg font-medium text-gray-900 truncate">${student.name}</h3>
+                        <p class="mt-1 text-sm text-gray-500">
+                            <span class="font-medium">Education:</span> ${student.education}
+                        </p>
+                        <p class="mt-1 text-sm text-gray-500">
+                            <span class="font-medium">Skills:</span> ${student.skills.join(', ')}
+                        </p>
+                        <div class="mt-4">
+                            <span class="font-medium text-sm text-gray-700">Requested:</span>
+                            <span class="text-lg font-bold text-indigo-600">${student.fundingRequest.amount} ETH</span>
+                        </div>
+                        <p class="mt-2 text-sm text-gray-500">
+                            ${student.fundingRequest.purpose}
+                        </p>
+                        <button onclick="openFundModal('${JSON.stringify(student).replace(/'/g, "\\'")}')"
+                            class="mt-4 w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+                            Fund Student
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Load funding history
+        function loadFundingHistory() {
+            const fundings = JSON.parse(localStorage.getItem('fundings') || '[]');
+            const myFundings = fundings.filter(f => f.from === userAddress);
+            const fundingsList = document.getElementById('fundingsList');
+
+            if (myFundings.length === 0) {
+                fundingsList.innerHTML = `
+                    <div class="text-center py-6">
+                        <p class="text-gray-500">No funding history yet</p>
+                    </div>
+                `;
+                return;
+            }
+
+            fundingsList.innerHTML = myFundings.map(fund => `
+                <div class="border-b border-gray-200 py-4 last:border-0">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">
+                                Sent ${fund.amount} ETH
+                            </p>
+                            <p class="mt-1 text-xs text-gray-500">
+                                To: ${fund.to.slice(0, 6)}...${fund.to.slice(-4)}
+                            </p>
+                            <p class="mt-1 text-sm text-gray-600">${fund.message || 'No message'}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs text-gray-500">
+                                ${new Date(fund.timestamp).toLocaleDateString()}
+                            </p>
+                            <a href="https://etherscan.io/tx/${fund.txHash}" 
+                               target="_blank"
+                               class="text-xs text-indigo-600 hover:text-indigo-500">
+                                View Transaction
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Open fund modal
+        function openFundModal(appData) {
+            const app = JSON.parse(appData);
+            const modal = document.getElementById('fundModal');
+            const details = document.getElementById('studentDetails');
+            const contactInfo = document.getElementById('contactInfo');
+
+            details.innerHTML = `
+                <p class="text-sm text-gray-600"><span class="font-medium">Student:</span> ${app.name}</p>
+                <p class="text-sm text-gray-600"><span class="font-medium">Requested Amount:</span> ${app.fundingRequest.amount} ETH</p>
+                <p class="text-sm text-gray-600"><span class="font-medium">Purpose:</span> ${app.fundingRequest.purpose}</p>
+            `;
+            details.dataset.studentAddress = app.walletAddress;
+            contactInfo.value = currentUser.contactInfo;
+
+            modal.classList.remove('hidden');
+        }
+
+        // Close fund modal
+        function closeFundModal() {
+            document.getElementById('fundModal').classList.add('hidden');
+            document.getElementById('fundAmount').value = '';
+            document.getElementById('fundMessage').value = '';
+        }
+
+        // Fund student
+        async function fundStudent() {
+            try {
+                if (!userAddress) {
+                    alert('Please connect your wallet first');
+                    return;
+                }
+
+                const amount = document.getElementById('fundAmount').value;
+                const message = document.getElementById('fundMessage').value;
+                const contactInfo = document.getElementById('contactInfo').value;
+                const studentAddress = document.getElementById('studentDetails').dataset.studentAddress;
+
+                if (!amount || amount <= 0) {
+                    alert('Please enter a valid amount');
+                    return;
+                }
+
+                // Send transaction
+                const tx = await signer.sendTransaction({
+                    to: studentAddress,
+                    value: ethers.utils.parseEther(amount.toString())
+                });
+
+                // Save funding record
+                const fundings = JSON.parse(localStorage.getItem('fundings') || '[]');
+                fundings.push({
+                    from: userAddress,
+                    to: studentAddress,
+                    amount,
+                    message,
+                    contactInfo,
+                    timestamp: new Date().toISOString(),
+                    txHash: tx.hash
+                });
+                localStorage.setItem('fundings', JSON.stringify(fundings));
+
+                alert('Funding successful! Transaction hash: ' + tx.hash);
+                closeFundModal();
+                loadFundingHistory();
+            } catch (error) {
+                console.error('Funding error:', error);
+                alert('Failed to send funds. Please try again.');
+            }
+        }
+
+        // Initialize
+        async function initialize() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    alert('Please install MetaMask to use this application');
+                    return;
+                }
+
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                
+                signer = provider.getSigner();
+                userAddress = await signer.getAddress();
+
+                loadProfile();
+                loadApplications();
+                loadFundingHistory();
+
+                // Update wallet status
+                const walletStatus = document.getElementById('walletStatus');
+                walletStatus.textContent = `Connected: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+
+                // Listen for account changes
+                window.ethereum.on('accountsChanged', (accounts) => {
+                    if (accounts.length === 0) {
+                        handleLogout();
+                    } else {
+                        window.location.reload();
+                    }
+                });
+
+                window.ethereum.on('chainChanged', () => {
+                    window.location.reload();
+                });
+            } catch (error) {
+                console.error('Initialization error:', error);
+                alert('Failed to connect wallet. Please make sure MetaMask is installed and try again.');
+            }
+        }
+
+        // Initialize when the page loads
+        window.addEventListener('load', initialize);
+    </script>
+</body>
+</html>

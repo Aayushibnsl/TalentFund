@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investor Registration - TalentFund</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js" type="application/javascript"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
+            <div>
+                <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Investor Registration</h2>
+                <p class="mt-2 text-center text-sm text-gray-600">Join TalentFund to support promising students</p>
+            </div>
+
+            <!-- Wallet Connection -->
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900">Connect Wallet</h3>
+                        <p class="text-sm text-gray-500" id="walletStatus">Please connect your wallet to continue</p>
+                    </div>
+                    <button id="connectWalletBtn" onclick="connectWallet()" 
+                            class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
+                        Connect Wallet
+                    </button>
+                </div>
+            </div>
+
+            <form id="registrationForm" class="mt-8 space-y-6">
+                <div class="rounded-md shadow-sm -space-y-px">
+                    <div class="mb-4">
+                        <label for="name" class="block text-sm font-medium text-gray-700">Full Name</label>
+                        <input id="name" name="name" type="text" required 
+                               class="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm">
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
+                        <input id="email" name="email" type="email" required 
+                               class="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm">
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="company" class="block text-sm font-medium text-gray-700">Company/Organization</label>
+                        <input id="company" name="company" type="text" required 
+                               class="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm">
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="investmentRange" class="block text-sm font-medium text-gray-700">Investment Range (ETH)</label>
+                        <select id="investmentRange" name="investmentRange" required 
+                                class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <option value="0-1">0-1 ETH</option>
+                            <option value="1-5">1-5 ETH</option>
+                            <option value="5-10">5-10 ETH</option>
+                            <option value="10+">10+ ETH</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="interests" class="block text-sm font-medium text-gray-700">Investment Interests</label>
+                        <textarea id="interests" name="interests" rows="3" required 
+                                  class="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                                  placeholder="What type of students/projects are you interested in funding?"></textarea>
+                    </div>
+                </div>
+
+                <div>
+                    <button type="submit" id="submitButton" disabled
+                            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Complete Registration
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let provider = null;
+        let signer = null;
+        let userAddress = null;
+
+        async function connectWallet() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    alert('Please install MetaMask to use this application');
+                    return;
+                }
+
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                
+                signer = provider.getSigner();
+                userAddress = await signer.getAddress();
+                
+                updateWalletUI();
+                document.getElementById('submitButton').disabled = false;
+            } catch (error) {
+                console.error('Error connecting wallet:', error);
+                alert('Failed to connect wallet. Please try again.');
+            }
+        }
+
+        function updateWalletUI() {
+            const walletStatus = document.getElementById('walletStatus');
+            const connectBtn = document.getElementById('connectWalletBtn');
+            
+            walletStatus.textContent = `Connected: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+            connectBtn.textContent = 'Connected';
+            connectBtn.disabled = true;
+        }
+
+        document.getElementById('registrationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!userAddress) {
+                alert('Please connect your wallet first');
+                return;
+            }
+
+            const investorData = {
+                type: 'investor',
+                walletAddress: userAddress,
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                company: document.getElementById('company').value,
+                investmentRange: document.getElementById('investmentRange').value,
+                interests: document.getElementById('interests').value,
+                registeredAt: new Date().toISOString(),
+                notifications: [] // Initialize empty notifications array
+            };
+
+            try {
+                // Save to localStorage
+                const investors = JSON.parse(localStorage.getItem('investors') || '[]');
+                investors.push(investorData);
+                localStorage.setItem('investors', JSON.stringify(investors));
+                
+                // Set as current user
+                localStorage.setItem('currentUser', JSON.stringify(investorData));
+                
+                alert('Registration successful! Redirecting to dashboard...');
+                window.location.href = 'investor_dashboard.html';
+            } catch (error) {
+                console.error('Registration error:', error);
+                alert('Registration failed. Please try again.');
+            }
+        });
+
+        // Check if already registered
+        window.addEventListener('load', () => {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (currentUser && currentUser.type === 'investor') {
+                window.location.href = 'investor_dashboard.html';
+            }
+        });
+    </script>
+</body>
+</html>

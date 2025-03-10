@@ -1,0 +1,50 @@
+{
+  "students": [
+    {
+      "id": "student_1741507961860",
+      "name": "Aayushi Bansal",
+      "email": "aayushibansal324@gmail.com",
+      "phone": "06367434668",
+      "dob": "2007-05-24",
+      "skills": [
+        "web devlopment",
+        "mern"
+      ],
+      "portfolio": "https://www.linkedin.com/in/aayushi-bansal-620b12286/",
+      "education": "Undergraduate",
+      "status": "approved",
+      "notifications": [
+        {
+          "message": "Your application has been approved by investor dhruv",
+          "date": "2025-03-09T08:20:36.233Z",
+          "read": false
+        }
+      ],
+      "createdAt": "2025-03-09T08:12:41.860Z",
+      "userType": "student"
+    },
+    {
+      "id": "student_1741509708941",
+      "name": "ansh",
+      "email": "ansh11@gmail.com",
+      "phone": "1236547890",
+      "dob": "2005-05-15",
+      "skills": [
+        "react",
+        "comedian"
+      ],
+      "portfolio": "https://www.linkedin.com/in/aayushi-bansal-620b12286/",
+      "education": "Undergraduate",
+      "status": "approved",
+      "notifications": [
+        {
+          "message": "Your application has been approved by investor dhruv",
+          "date": "2025-03-09T08:42:19.314Z",
+          "read": false
+        }
+      ],
+      "createdAt": "2025-03-09T08:41:48.941Z",
+      "userType": "student"
+    }
+  ]
+}

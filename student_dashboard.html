@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - TalentFund</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Navigation -->
+        <nav class="bg-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex">
+                        <div class="flex-shrink-0 flex items-center">
+                            <a href="/" class="text-xl font-bold text-indigo-600">TalentFund</a>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <p id="walletStatus" class="text-sm text-gray-600"></p>
+                        <button onclick="handleLogout()" 
+                                class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <!-- Profile Card -->
+            <div class="mb-8 p-6 bg-white rounded-lg shadow-md">
+                <div id="profileInfo">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Your Profile</h2>
+                    <!-- Profile info will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Funding Status -->
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">Funding Status</h2>
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="p-6">
+                        <div id="fundingsList">
+                            <!-- Funding records will be loaded here -->
+                        </div>
+                        <!-- Notifications -->
+                        <div id="notifications" class="mt-6 border-t pt-6">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">Notifications</h3>
+                            <div id="notificationsList" class="space-y-4">
+                                <!-- Notifications will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let provider = null;
+        let signer = null;
+        let userAddress = null;
+        let currentUser = null;
+
+        // Handle wallet connection
+        async function handleConnect() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    alert('Please install MetaMask to use this application');
+                    return;
+                }
+
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                
+                signer = provider.getSigner();
+                userAddress = await signer.getAddress();
+
+                updateWalletUI(userAddress);
+                loadUserProfile();
+                loadFundings();
+                console.log('Connected to wallet:', userAddress);
+            } catch (error) {
+                console.error('Error connecting wallet:', error);
+                alert('Failed to connect wallet. Please make sure MetaMask is installed and try again.');
+            }
+        }
+
+        // Handle logout
+        function handleLogout() {
+            localStorage.removeItem('currentUser');
+            window.location.href = '/';
+        }
+
+        // Update UI after wallet connection
+        function updateWalletUI(address) {
+            const walletStatus = document.getElementById('walletStatus');
+            const connectWalletBtn = document.getElementById('connectWallet');
+
+            walletStatus.textContent = `Connected: ${address.slice(0, 6)}...${address.slice(-4)}`;
+            connectWalletBtn.textContent = 'Wallet Connected';
+            connectWalletBtn.disabled = true;
+        }
+
+        // Load user profile
+        function loadUserProfile() {
+            currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (!currentUser) {
+                window.location.href = '/userform.html';
+                return;
+            }
+
+            const profileInfo = document.getElementById('profileInfo');
+            profileInfo.innerHTML = `
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900">${currentUser.name}</h3>
+                        <p class="mt-1 text-sm text-gray-500">${currentUser.email}</p>
+                        <p class="mt-1 text-sm text-gray-500">Education: ${currentUser.education}</p>
+                        <p class="mt-1 text-sm text-gray-500">Skills: ${currentUser.skills.join(', ')}</p>
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-medium text-gray-900">Funding Request</h4>
+                        <p class="mt-1 text-sm text-gray-500">Amount: ${currentUser.fundingRequest.amount} ETH</p>
+                        <p class="mt-1 text-sm text-gray-500">Purpose: ${currentUser.fundingRequest.purpose}</p>
+                        <p class="mt-1 text-sm text-gray-500">Timeline: ${currentUser.fundingRequest.timeline}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Load funding records with notifications
+        function loadFundings() {
+            const fundings = JSON.parse(localStorage.getItem('fundings') || '[]');
+            const myFundings = fundings.filter(f => f.to === userAddress);
+            const fundingsList = document.getElementById('fundingsList');
+            const notificationsList = document.getElementById('notificationsList');
+
+            if (myFundings.length === 0) {
+                fundingsList.innerHTML = `
+                    <div class="text-center py-6">
+                        <p class="text-gray-500">No funding received yet</p>
+                    </div>
+                `;
+                notificationsList.innerHTML = `
+                    <div class="text-center">
+                        <p class="text-gray-500">No notifications</p>
+                    </div>
+                `;
+                return;
+            }
+
+            fundingsList.innerHTML = myFundings.map(fund => `
+                <div class="border-b border-gray-200 py-4 last:border-0">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">
+                                Received ${fund.amount} ETH
+                            </p>
+                            <p class="mt-1 text-xs text-gray-500">
+                                From: ${fund.from.slice(0, 6)}...${fund.from.slice(-4)}
+                            </p>
+                            <p class="mt-1 text-sm text-gray-600">${fund.message || 'No message'}</p>
+                            ${fund.contactInfo ? `
+                                <p class="mt-2 text-sm text-indigo-600">
+                                    Contact: ${fund.contactInfo}
+                                </p>
+                            ` : ''}
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs text-gray-500">
+                                ${new Date(fund.timestamp).toLocaleDateString()}
+                            </p>
+                            <a href="https://etherscan.io/tx/${fund.txHash}" 
+                               target="_blank"
+                               class="text-xs text-indigo-600 hover:text-indigo-500">
+                                View Transaction
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Show notifications
+            notificationsList.innerHTML = myFundings.map(fund => `
+                <div class="bg-green-50 p-4 rounded-md">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium text-green-800">
+                                Funding Received! ${fund.amount} ETH from investor
+                            </p>
+                            <p class="mt-1 text-sm text-green-700">
+                                ${new Date(fund.timestamp).toLocaleString()}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Check if wallet is already connected
+        async function checkConnection() {
+            if (typeof window.ethereum !== 'undefined') {
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                const accounts = await provider.listAccounts();
+                
+                if (accounts.length > 0) {
+                    signer = provider.getSigner();
+                    userAddress = accounts[0];
+                    updateWalletUI(userAddress);
+                    loadUserProfile();
+                    loadFundings();
+                }
+
+                // Listen for account changes
+                window.ethereum.on('accountsChanged', (accounts) => {
+                    if (accounts.length === 0) {
+                        provider = null;
+                        signer = null;
+                        userAddress = null;
+                        document.getElementById('walletStatus').textContent = '';
+                        document.getElementById('connectWallet').textContent = 'Connect Wallet';
+                        document.getElementById('connectWallet').disabled = false;
+                    } else {
+                        userAddress = accounts[0];
+                        updateWalletUI(userAddress);
+                        loadUserProfile();
+                        loadFundings();
+                    }
+                });
+
+                window.ethereum.on('chainChanged', () => {
+                    window.location.reload();
+                });
+            }
+        }
+
+        // Initialize when the page loads
+        window.addEventListener('load', checkConnection);
+    </script>
+</body>
+</html>

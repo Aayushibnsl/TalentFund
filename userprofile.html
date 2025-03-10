@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Profile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/database.js"></script>
+    <style>
+        body {
+            background: #f0f9ff;
+        }
+        .nft-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+        }
+        .nft-card:hover {
+            transform: translateY(-5px);
+        }
+    </style>
+</head>
+<body>
+    <nav class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-2xl font-bold text-blue-600">TalentFund</h1>
+                </div>
+                <div class="flex items-center">
+                    <button onclick="logout()" class="px-4 py-2 bg-blue-600 text-white rounded">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- Profile Info -->
+        <div class="bg-white rounded shadow p-6 mb-8">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 id="studentName" class="text-2xl font-bold text-gray-800"></h2>
+                    <p id="studentEmail" class="text-gray-600"></p>
+                    <p id="education" class="text-gray-600 mt-2"></p>
+                </div>
+                <div class="text-right">
+                    <p class="text-gray-600">Application Status</p>
+                    <p id="applicationStatus" class="text-xl font-bold text-blue-600"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- NFT Collection -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Your NFT Collection</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="nftCollection">
+                <!-- NFTs will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Investor Approvals -->
+        <div class="bg-white rounded shadow p-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-6">Investor Approvals</h3>
+            <div id="approvalsList">
+                <!-- Approvals will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Notifications Section -->
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 class="text-2xl font-bold text-blue-600 mb-4">Notifications</h2>
+            <div id="notificationsContainer" class="space-y-4">
+                <!-- Notifications will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let currentStudent = null;
+
+        async function checkAuth() {
+            const userStr = sessionStorage.getItem('currentUser');
+            if (!userStr) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            currentUser = JSON.parse(userStr);
+            if (currentUser.userType !== 'student') {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            try {
+                currentStudent = await Database.getStudentById(currentUser.id);
+                if (!currentStudent) {
+                    sessionStorage.removeItem('currentUser');
+                    window.location.href = '/login.html';
+                    return;
+                }
+                updateUI();
+                loadNFTs();
+                updateApprovals();
+                displayNotifications();
+            } catch (error) {
+                console.error('Error loading student data:', error);
+                alert('Error loading profile data. Please try again.');
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('studentName').textContent = currentStudent.name;
+            document.getElementById('studentEmail').textContent = currentStudent.email;
+            document.getElementById('education').textContent = currentStudent.education;
+            
+            const status = currentStudent.status || 'pending';
+            document.getElementById('applicationStatus').textContent = 
+                status.charAt(0).toUpperCase() + status.slice(1);
+        }
+
+        function loadNFTs() {
+            const nftContainer = document.getElementById('nftCollection');
+            const dummyNFTs = [
+                { id: 1, name: 'Education NFT #1', amount: '2000 Points', status: 'Active' },
+                { id: 2, name: 'Education NFT #2', amount: '1500 Points', status: 'Pending' },
+                { id: 3, name: 'Education NFT #3', amount: '3000 Points', status: 'Active' }
+            ];
+
+            nftContainer.innerHTML = dummyNFTs.map(nft => `
+                <div class="nft-card p-6">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800">${nft.name}</h3>
+                            <p class="text-gray-600">${nft.amount}</p>
+                        </div>
+                        <span class="px-2 py-1 rounded text-sm ${
+                            nft.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        }">${nft.status}</span>
+                    </div>
+                    <div class="mt-4">
+                        <button class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                            View Details
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateApprovals() {
+            const container = document.getElementById('approvalsList');
+            const approvals = currentStudent.approvals || [];
+            
+            if (approvals.length === 0) {
+                container.innerHTML = '<p class="text-gray-600">No investor responses yet</p>';
+                return;
+            }
+
+            container.innerHTML = approvals.map(approval => `
+                <div class="border-b border-gray-200 py-4 last:border-0">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-800">${approval.investorName}</h4>
+                            <p class="text-gray-600">${approval.organization}</p>
+                            <p class="text-gray-600 mt-2">Date: ${new Date(approval.date).toLocaleDateString()}</p>
+                        </div>
+                        <span class="px-3 py-1 rounded ${
+                            approval.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }">
+                            ${approval.status.charAt(0).toUpperCase() + approval.status.slice(1)}
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function displayNotifications() {
+            const container = document.getElementById('notificationsContainer');
+            if (!currentStudent.notifications || currentStudent.notifications.length === 0) {
+                container.innerHTML = '<p class="text-gray-600">No notifications yet</p>';
+                return;
+            }
+
+            container.innerHTML = currentStudent.notifications.map(notification => {
+                const investorDetails = notification.investorDetails;
+                return `
+                    <div class="border-l-4 ${notification.read ? 'border-gray-300' : 'border-blue-500'} bg-white p-4 shadow rounded">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-grow">
+                                <p class="text-gray-800 font-medium">${notification.message}</p>
+                                <p class="text-gray-500 text-sm mt-1">
+                                    ${new Date(notification.date).toLocaleDateString()}
+                                </p>
+                                ${investorDetails ? `
+                                    <div class="mt-4 bg-blue-50 p-4 rounded">
+                                        <h4 class="font-semibold text-blue-800">Investor Details</h4>
+                                        <p class="text-gray-700">Name: ${investorDetails.name}</p>
+                                        <p class="text-gray-700">Organization: ${investorDetails.organization}</p>
+                                        <p class="text-gray-700">Contact: ${investorDetails.email}</p>
+                                        ${investorDetails.fundingResponse ? `
+                                            <div class="mt-2 pt-2 border-t border-blue-200">
+                                                <p class="text-gray-700 font-medium">Funding Amount: $${investorDetails.fundingResponse.amount}</p>
+                                                ${investorDetails.fundingResponse.notes ? `
+                                                    <p class="text-gray-700 mt-1">Notes: ${investorDetails.fundingResponse.notes}</p>
+                                                ` : ''}
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                ` : ''}
+                            </div>
+                            ${!notification.read ? `
+                                <button onclick="markNotificationAsRead('${notification.id}')"
+                                        class="text-sm text-blue-600 hover:text-blue-800">
+                                    Mark as read
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function markNotificationAsRead(notificationId) {
+            try {
+                const notifications = currentStudent.notifications.map(n => 
+                    n.id === notificationId ? {...n, read: true} : n
+                );
+                
+                await Database.updateStudent(currentStudent.id, {
+                    ...currentStudent,
+                    notifications
+                });
+                
+                currentStudent = await Database.getStudentById(currentStudent.id);
+                displayNotifications();
+            } catch (error) {
+                console.error('Error marking notification as read:', error);
+            }
+        }
+
+        function logout() {
+            sessionStorage.removeItem('currentUser');
+            window.location.href = '/index.html';
+        }
+
+        checkAuth();
+    </script>
+</body>
+</html>

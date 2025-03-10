@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TalentFund</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .navbar {
+            background: #2c3e50 !important;
+        }
+        .main-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .login-box {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            max-width: 400px;
+            width: 100%;
+        }
+        .btn-connect {
+            background: #3498db;
+            border: none;
+            padding: 12px 20px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        .btn-connect:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+        .status-message {
+            margin-top: 20px;
+            display: none;
+        }
+        .wallet-status {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1">TalentFund</span>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <div class="login-box">
+            <h2 class="text-center mb-4">Welcome to TalentFund</h2>
+            
+            <div id="walletStatus" class="wallet-status">
+                Please connect your wallet to continue
+            </div>
+
+            <div class="d-grid gap-3">
+                <button onclick="handleConnect('student')" class="btn btn-connect btn-primary">
+                    Connect as Student
+                </button>
+                <button onclick="handleConnect('investor')" class="btn btn-connect btn-primary">
+                    Connect as Investor
+                </button>
+            </div>
+
+            <div id="statusMessage" class="alert status-message"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
+    <script>
+        let web3;
+        let currentAccount;
+
+        async function handleConnect(role) {
+            try {
+                showStatus('Connecting to MetaMask...', 'info');
+                
+                // Check if MetaMask is installed
+                if (typeof window.ethereum === 'undefined') {
+                    showStatus('Please install MetaMask to continue', 'danger');
+                    return;
+                }
+
+                // Request account access
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                if (!accounts || accounts.length === 0) {
+                    showStatus('Please connect your MetaMask wallet', 'danger');
+                    return;
+                }
+
+                currentAccount = accounts[0];
+                web3 = new Web3(window.ethereum);
+
+                // Update wallet status
+                document.getElementById('walletStatus').textContent = 
+                    `Connected: ${currentAccount.slice(0, 6)}...${currentAccount.slice(-4)}`;
+
+                showStatus('Wallet connected! Redirecting...', 'success');
+
+                // Store connection info
+                sessionStorage.setItem('walletInfo', JSON.stringify({
+                    address: currentAccount,
+                    role: role
+                }));
+
+                // Redirect to registration
+                setTimeout(() => {
+                    window.location.href = `/${role}-registration.html`;
+                }, 1000);
+
+            } catch (error) {
+                console.error('Connection error:', error);
+                showStatus('Failed to connect: ' + error.message, 'danger');
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `alert alert-${type} status-message`;
+            statusDiv.style.display = 'block';
+        }
+
+        // Check for existing connection
+        window.addEventListener('load', async () => {
+            if (typeof window.ethereum !== 'undefined') {
+                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                if (accounts && accounts.length > 0) {
+                    currentAccount = accounts[0];
+                    document.getElementById('walletStatus').textContent = 
+                        `Connected: ${currentAccount.slice(0, 6)}...${currentAccount.slice(-4)}`;
+                }
+            }
+        });
+
+        // Handle account changes
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', function (accounts) {
+                window.location.reload();
+            });
+        }
+    </script>
+</body>
+</html> 
